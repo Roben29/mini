@@ -2,6 +2,27 @@ import pandas as pd
 import os
 
 def load_dataset():
+    # Load balanced 10k+10k dataset
+    if os.path.exists('data/legimate.csv') and os.path.exists('data/malicious.csv'):
+        print("Loading balanced 10k+10k dataset...")
+        
+        # Load legitimate URLs
+        legitimate_df = pd.read_csv('data/legimate.csv', header=None, names=['id', 'url'])
+        legitimate_df['label'] = 0
+        legitimate_df = legitimate_df[['url', 'label']]
+        
+        # Load malicious URLs
+        malicious_df = pd.read_csv('data/malicious.csv')
+        # Extract URL column (different format)
+        if 'url' in malicious_df.columns:
+            malicious_df = malicious_df[['url']]
+        malicious_df['label'] = 1
+        
+        # Combine datasets
+        df = pd.concat([legitimate_df, malicious_df], ignore_index=True)
+        print(f"Dataset loaded: {len(df)} URLs, {(df['label']==0).sum()} legitimate, {(df['label']==1).sum()} phishing")
+        return df
+    
     # Try to load sampled dataset first (for production training with real security checks)
     if os.path.exists('data/urls_sampled.csv'):
         print("Loading sampled dataset for production training...")
