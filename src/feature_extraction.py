@@ -12,7 +12,7 @@ import time
 warnings.filterwarnings('ignore')
 
 # Set reasonable timeouts for network operations
-TIMEOUT = 5
+TIMEOUT = 3  # Reduced from 5 to 3 seconds for faster processing
 MAX_RETRIES = 1
 
 def calculate_entropy(text):

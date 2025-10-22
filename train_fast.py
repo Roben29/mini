@@ -1,16 +1,17 @@
 """
-Quick training script without slow network checks
+Optimized training script with proper online security checks
+Uses the standard feature extraction but with the full 20k dataset
 """
 import sys
 import os
 sys.path.append('src')
 
 print("=" * 70)
-print("  QUICK TRAINING - OFFLINE MODE (NO NETWORK CHECKS)")
+print("  TRAINING WITH REAL SECURITY CHECKS (20K BALANCED DATASET)")
 print("=" * 70)
 
-# Use the improved feature extraction
-from feature_extraction_improved import extract_features
+# Use the standard feature extraction with online checks
+from feature_extraction import extract_features
 from data_collection import load_dataset
 from preprocessing import prepare_data
 from model_training import train_decision_tree, train_xgboost
@@ -20,7 +21,8 @@ print("\n[1/5] Loading dataset...")
 df = load_dataset()
 print(f"   ✓ Loaded {len(df)} URLs")
 
-print("\n[2/5] Extracting features (FAST MODE - no network checks)...")
+print("\n[2/5] Extracting features (WITH online security checks)...")
+print("⏱️  This will take 30-60 minutes for 20k URLs")
 df_features = extract_features(df)
 print(f"   ✓ Extracted {df_features.shape[1]} features")
 
