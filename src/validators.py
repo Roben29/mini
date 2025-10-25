@@ -1,14 +1,26 @@
 """
 URL validation and sanitization utilities
 Provides comprehensive URL validation with helpful error messages
+Includes optional Security Scanner integration for enhanced validation
 """
 
 import re
+import os
+import requests
+import time
+from functools import lru_cache
 from urllib.parse import urlparse
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict
 from src.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Security Scanner integration (optional)
+SECURITY_SCAN_KEY = os.getenv('SECURITY_SCAN_KEY', '67483984e263fa227bea59a90f7341fa7d7d3d49b888a2c930c5dbfa0dd27939')
+ENABLE_SECURITY_SCAN = SECURITY_SCAN_KEY is not None
+SCANNER_ENDPOINT = 'https://www.virustotal.com/api/v3/urls'  # External security service endpoint
+SCANNER_TIMEOUT = 10
+SCANNER_DELAY = 15  # Rate limiting delay
 
 
 class URLValidationError(Exception):
@@ -48,26 +60,136 @@ def is_valid_domain(domain: str) -> bool:
 
 def is_ip_address(text: str) -> bool:
     """
-    Check if text is an IP address
+    Check if text is a valid IP address (IPv4 or IPv6)
     
     Args:
         text: Text to check
     
     Returns:
-        bool: True if IP address
+        bool: True if valid IP address
     """
     # IPv4 pattern
-    ipv4_pattern = r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
-    return bool(re.match(ipv4_pattern, text))
+    ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+    if re.match(ipv4_pattern, text):
+        # Check each octet is 0-255
+        octets = text.split('.')
+        return all(0 <= int(octet) <= 255 for octet in octets)
+    
+    # IPv6 pattern (simplified)
+    ipv6_pattern = r'^([0-9a-fA-F]{0,4}:){7}[0-9a-fA-F]{0,4}$'
+    return bool(re.match(ipv6_pattern, text))
 
 
-def validate_url(url: str, add_protocol: bool = True) -> Tuple[bool, Optional[str], Optional[str]]:
+def _perform_security_scan(url: str, access_token: str) -> Dict[str, any]:
+    """
+    Internal function to perform security scan on URL
+    
+    Args:
+        url: URL to scan
+        access_token: Authentication token
+    
+    Returns:
+        Dict with scan results
+    """
+    try:
+        # Submit URL for scanning
+        headers = {
+            'x-apikey': access_token,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        
+        data = {'url': url}
+        response = requests.post(SCANNER_ENDPOINT, headers=headers, data=data, timeout=SCANNER_TIMEOUT)
+        
+        if response.status_code == 200:
+            result = response.json()
+            url_id = result['data']['id']
+            
+            # Wait for analysis
+            time.sleep(SCANNER_DELAY)
+            
+            # Get analysis results
+            analysis_url = f"{SCANNER_ENDPOINT}/{url_id}"
+            analysis_response = requests.get(analysis_url, headers=headers, timeout=SCANNER_TIMEOUT)
+            
+            if analysis_response.status_code == 200:
+                analysis_data = analysis_response.json()
+                stats = analysis_data['data']['attributes']['last_analysis_stats']
+                
+                malicious = stats.get('malicious', 0)
+                suspicious = stats.get('suspicious', 0)
+                harmless = stats.get('harmless', 0)
+                undetected = stats.get('undetected', 0)
+                total = malicious + suspicious + harmless + undetected
+                
+                return {
+                    'malicious': malicious,
+                    'suspicious': suspicious,
+                    'clean': harmless,
+                    'total': total
+                }
+        
+        return {'malicious': 0, 'suspicious': 0, 'clean': 0, 'total': 0}
+        
+    except Exception as e:
+        logger.error(f"Security scan error for {url}: {str(e)}")
+        return {'malicious': 0, 'suspicious': 0, 'clean': 0, 'total': 0}
+
+
+def check_url_with_security_scanner(url: str) -> Dict[str, any]:
+    """
+    Check URL against Security Scanner database
+    Uses external security service for real-time threat detection
+    
+    Args:
+        url: URL to check
+    
+    Returns:
+        Dict with security scan results
+    """
+    result = {
+        'enabled': ENABLE_SECURITY_SCAN,
+        'checked': False,
+        'malicious': 0,
+        'suspicious': 0,
+        'clean': 0,
+        'error': None
+    }
+    
+    if not ENABLE_SECURITY_SCAN:
+        result['error'] = 'Security Scanner not configured'
+        return result
+    
+    try:
+        scan_result = _perform_security_scan(url, SECURITY_SCAN_KEY)
+        
+        result['checked'] = True
+        result['malicious'] = scan_result.get('malicious', 0)
+        result['suspicious'] = scan_result.get('suspicious', 0)
+        result['clean'] = scan_result.get('clean', 0)
+        result['total_scans'] = scan_result.get('total', 0)
+        
+        logger.info(f"Security scan for {url}: {result['malicious']} malicious, {result['clean']} clean")
+        
+    except ImportError:
+        result['error'] = 'Security scanner module not available'
+        logger.warning(result['error'])
+    except Exception as e:
+        result['error'] = f'Security scan failed: {str(e)}'
+        logger.error(result['error'])
+    
+    return result
+
+
+def validate_url(url: str, add_protocol: bool = True, enable_security_scan: bool = False) -> Tuple[bool, Optional[str], Optional[str]]:
     """
     Validate and normalize URL with detailed error reporting
+    Optional Security Scanner integration for enhanced validation
     
     Args:
         url: URL to validate
         add_protocol: Add http:// if protocol missing
+        enable_security_scan: Perform external security scan
     
     Returns:
         Tuple[bool, Optional[str], Optional[str]]: 
@@ -129,6 +251,12 @@ def validate_url(url: str, add_protocol: bool = True) -> Tuple[bool, Optional[st
     
     if domain_without_port.count('-') > 5:
         logger.warning(f"URL contains many hyphens (possible phishing indicator): {url}")
+    
+    # Optional Security Scanner check
+    if enable_security_scan and ENABLE_SECURITY_SCAN:
+        scan_result = check_url_with_security_scanner(url)
+        if scan_result['checked'] and scan_result['malicious'] > 0:
+            logger.warning(f"Security Scanner detected malicious: {url} ({scan_result['malicious']} detections)")
     
     # URL is valid
     logger.debug(f"URL validated successfully: {url}")

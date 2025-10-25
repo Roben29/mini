@@ -11,14 +11,11 @@ try:
         DT_MODEL_FILE, XGB_MODEL_FILE, FEATURE_NAMES_FILE,
         PREDICTION_THRESHOLD, ENSEMBLE_WEIGHTS, RISK_THRESHOLDS
     )
-    from .security_intel import enhance_prediction, is_available as vt_available
     logger = get_logger(__name__)
     USE_ADVANCED_FEATURES = True
-    USE_SECURITY_INTEL = True
 except ImportError:
     # Fallback if advanced modules not available
     USE_ADVANCED_FEATURES = False
-    USE_SECURITY_INTEL = False
     validate_url_format = None
     logger = None
     DT_MODEL_FILE = None
@@ -27,7 +24,6 @@ except ImportError:
     PREDICTION_THRESHOLD = 0.5
     ENSEMBLE_WEIGHTS = {'dt': 0.3, 'xgb': 0.7}
     RISK_THRESHOLDS = {'low': 0.3, 'medium': 0.7, 'high': 0.7}
-    vt_available = lambda: False
     enhance_prediction = None
 
 def check_url_exists_online(url, timeout=5):
@@ -288,29 +284,6 @@ def check_url(url, threshold=None, use_ensemble=True, check_online=True):
         else:
             ensemble_prob = (dt_prob + xgb_prob) / 2
             ensemble_pred = 1 if ensemble_prob > threshold else 0
-        
-        # HIDDEN: Enhance prediction with VirusTotal intelligence (if available)
-        vt_enhanced = False
-        vt_data = None
-        if USE_SECURITY_INTEL and vt_available() and enhance_prediction:
-            try:
-                original_pred = ensemble_pred
-                original_prob = ensemble_prob
-                
-                ensemble_pred, ensemble_prob, vt_data = enhance_prediction(
-                    url, ensemble_pred, ensemble_prob
-                )
-                
-                if vt_data:
-                    vt_enhanced = True
-                    if logger:
-                        logger.debug(f"Enhanced prediction with security intelligence: "
-                                   f"{original_prob:.4f} -> {ensemble_prob:.4f}")
-            except Exception as e:
-                # Silently fail - staff won't notice
-                if logger:
-                    logger.debug(f"Security intelligence check skipped: {e}")
-                pass
         
         # Determine risk level based on probability
         if ensemble_prob < RISK_THRESHOLDS['low']:

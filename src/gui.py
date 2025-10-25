@@ -251,11 +251,11 @@ suspicious URLs through official channels and use antivirus software.
             self.prediction_text.insert(tk.END, "Please wait...\n")
             self.root.update()
             
-            # Import and run analysis
-            from .url_checker import check_url
+            # Import and run ensemble analysis
+            from .ensemble_predictor import get_ensemble_prediction
             from .feature_extraction import extract_features
             
-            result = check_url(url)
+            result = get_ensemble_prediction(url)
             
             # Check for errors in result
             if 'error' in result:
@@ -298,7 +298,7 @@ suspicious URLs through official channels and use antivirus software.
             self.prediction_text.insert(tk.END, "MACHINE LEARNING PREDICTIONS:\n\n")
             
             # Decision Tree
-            dt_info = result.get('models', {}).get('decision_tree', {})
+            dt_info = result.get('methods', {}).get('decision_tree', {})
             dt_prediction = dt_info.get('prediction', 'unknown')
             dt_probability = dt_info.get('probability', 0) * 100
             dt_label = "[PHISHING DETECTED]" if dt_prediction == 'phishing' else "[APPEARS SAFE]"
@@ -311,7 +311,7 @@ suspicious URLs through official channels and use antivirus software.
             self.prediction_text.insert(tk.END, "└" + "─" * 48 + "\n\n")
             
             # XGBoost
-            xgb_info = result.get('models', {}).get('xgboost', {})
+            xgb_info = result.get('methods', {}).get('xgboost', {})
             xgb_prediction = xgb_info.get('prediction', 'unknown')
             xgb_probability = xgb_info.get('probability', 0) * 100
             xgb_label = "[PHISHING DETECTED]" if xgb_prediction == 'phishing' else "[APPEARS SAFE]"
@@ -323,30 +323,33 @@ suspicious URLs through official channels and use antivirus software.
             self.prediction_text.insert(tk.END, f"│ Accuracy: ~92%\n")
             self.prediction_text.insert(tk.END, "└" + "─" * 48 + "\n\n")
             
-            # Overall Assessment
+            # NOTE: Security Scanner (3rd method) runs silently in background
+            # It contributes to the final verdict via majority voting, but is not displayed
+            
+            # Overall Assessment (uses all 3 methods in backend)
             self.prediction_text.insert(tk.END, "━" * 70 + "\n")
             self.prediction_text.insert(tk.END, "FINAL ASSESSMENT:\n\n")
             
-            both_safe = dt_prediction == 'legitimate' and xgb_prediction == 'legitimate'
-            both_phishing = dt_prediction == 'phishing' and xgb_prediction == 'phishing'
-            disagreement = dt_prediction != xgb_prediction
+            final_prediction = result.get('ensemble', {}).get('prediction', 'unknown')
+            final_probability = result.get('ensemble', {}).get('probability', 0) * 100
             
-            if both_safe:
-                self.prediction_text.insert(tk.END, "VERDICT: URL APPEARS SAFE\n\n")
+            if final_prediction == 'legitimate':
+                self.prediction_text.insert(tk.END, "✓ VERDICT: URL APPEARS SAFE\n\n")
+                self.prediction_text.insert(tk.END, f"Confidence: {final_probability:.1f}%\n\n")
                 self.prediction_text.insert(tk.END, "Both models agree that this URL looks legitimate.\n")
                 self.prediction_text.insert(tk.END, "However, always verify important links independently.\n")
-            elif both_phishing:
-                self.prediction_text.insert(tk.END, "VERDICT: LIKELY PHISHING WEBSITE\n\n")
-                self.prediction_text.insert(tk.END, "WARNING: Both models detected suspicious patterns!\n")
+            elif final_prediction == 'phishing':
+                self.prediction_text.insert(tk.END, "⚠ VERDICT: LIKELY PHISHING WEBSITE\n\n")
+                self.prediction_text.insert(tk.END, f"Confidence: {final_probability:.1f}%\n\n")
+                self.prediction_text.insert(tk.END, "WARNING: Models detected suspicious patterns!\n")
                 self.prediction_text.insert(tk.END, "• Do NOT enter personal information\n")
                 self.prediction_text.insert(tk.END, "• Do NOT download files\n")
                 self.prediction_text.insert(tk.END, "• Verify the website through official channels\n")
             else:
-                self.prediction_text.insert(tk.END, "VERDICT: MIXED RESULTS - EXERCISE CAUTION\n\n")
-                self.prediction_text.insert(tk.END, "Models disagree on classification.\n")
+                self.prediction_text.insert(tk.END, "? VERDICT: EXERCISE CAUTION\n\n")
+                self.prediction_text.insert(tk.END, "Models show mixed results.\n")
                 self.prediction_text.insert(tk.END, "• Be cautious when interacting with this URL\n")
                 self.prediction_text.insert(tk.END, "• Verify authenticity before proceeding\n")
-                self.prediction_text.insert(tk.END, "• Check for spelling errors in domain name\n")
             
             self.prediction_text.insert(tk.END, "\n" + "━" * 70 + "\n")
             

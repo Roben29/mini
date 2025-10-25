@@ -2,6 +2,14 @@
 
 A machine learning-based phishing detection system that analyzes URLs to identify potential malicious websites.
 
+## ✨ Features
+
+- **Machine Learning Models**: Decision Tree & XGBoost classifiers
+- **79+ Security Features**: URL structure, DNS, SSL, content analysis
+- **Real-time Validation**: Live security checks on URLs
+- **Ensemble Prediction**: Combines multiple detection methods with majority voting
+- **Balanced Dataset**: 20,000 URLs (10k legitimate + 10k phishing)
+
 ## 📊 Dataset
 
 - **Legitimate URLs**: 10,000 samples
@@ -61,11 +69,12 @@ python -m src.gui
 
 ## 🎯 Features Extracted
 
-The system extracts **79 features** from each URL:
+The system extracts **79+ features** from each URL:
 - URL structure (length, special characters, etc.)
 - Domain information (age, registration, DNS)
 - Security indicators (HTTPS, certificates)
 - Content analysis (HTML, redirects)
+- Security scanning validation (optional)
 
 ## 📈 Expected Performance
 
@@ -84,6 +93,23 @@ The system extracts **79 features** from each URL:
 - xgboost, joblib
 - requests, beautifulsoup4
 - python-whois, dnspython
+
+## � Advanced Configuration
+
+The system includes optional security scanning capabilities for enhanced detection:
+
+1. **Configure Environment** (optional):
+   ```bash
+   # Create .env file with:
+   SECURITY_SCAN_KEY=your_security_key
+   ```
+
+2. **Enhanced Features**: 
+   - Security reputation analysis
+   - Threat score calculation (0.0 to 1.0)
+   - Multi-source validation
+   
+**Note**: The system works fully with the standard 79 features. Security scanning adds supplementary validation when configured.
 
 ## 📝 License
 
