@@ -7,13 +7,6 @@ import os
 from pathlib import Path
 
 # ============================================
-# API KEYS (External Services)
-# ============================================
-
-# VirusTotal API Key - Get yours at: https://www.virustotal.com/gui/my-apikey
-VIRUSTOTAL_API_KEY = os.environ.get('VIRUSTOTAL_API_KEY', '')  # Set as environment variable or add here
-
-# ============================================
 # PROJECT PATHS
 # ============================================
 
